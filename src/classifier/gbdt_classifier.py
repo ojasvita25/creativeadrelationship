@@ -89,6 +89,10 @@ class GBDTAdRelationshipClassifier:
             })
             pairs_list.append((i, j))
 
+        if not X_list:
+            print("  No candidate pairs to classify.")
+            return []
+
         X = np.array(X_list, dtype=np.float32)
         print("  Running GBDT batch prediction...")
         
