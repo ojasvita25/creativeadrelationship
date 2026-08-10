@@ -1,16 +1,16 @@
 {
-  "started_at": "2026-08-10T09:08:02+00:00",
+  "started_at": "2026-08-10T10:36:54+00:00",
   "sample_size": null,
   "pipeline_name": "GBDT Classifier (CLIP + Lexical Jaccard)",
   "timings_seconds": {
-    "pipeline_total": 272.08,
-    "total_wall_clock": 272.11,
-    "report_generation": 1.38
+    "pipeline_total": 301.21,
+    "total_wall_clock": 301.24,
+    "report_generation": 1.48
   },
   "timings_formatted": {
-    "pipeline_total": "4m 32s",
-    "total_wall_clock": "4m 32s",
-    "report_generation": "1.4s"
+    "pipeline_total": "5m 01s",
+    "total_wall_clock": "5m 01s",
+    "report_generation": "1.5s"
   },
   "clip_threshold": 0.61
 }
