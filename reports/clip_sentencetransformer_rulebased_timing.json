@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-08-10T08:43:11+00:00",
+  "sample_size": null,
+  "pipeline_name": "Improved (CLIP + Sentence Transformers)",
+  "timings_seconds": {
+    "pipeline_total": 298.38,
+    "total_wall_clock": 298.41,
+    "report_generation": 1.29
+  },
+  "timings_formatted": {
+    "pipeline_total": "4m 58s",
+    "total_wall_clock": "4m 58s",
+    "report_generation": "1.3s"
+  },
+  "clip_threshold": 0.61
+}

@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-08-10T08:56:02+00:00",
+  "sample_size": null,
+  "pipeline_name": "Baseline (ResNet-18 + Lexical Jaccard)",
+  "timings_seconds": {
+    "pipeline_total": 144.31,
+    "total_wall_clock": 144.33,
+    "report_generation": 1.33
+  },
+  "timings_formatted": {
+    "pipeline_total": "2m 24s",
+    "total_wall_clock": "2m 24s",
+    "report_generation": "1.3s"
+  },
+  "resnet_threshold": 0.73
+}

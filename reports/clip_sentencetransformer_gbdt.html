@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad Creative Relationship Report</title>
+  <meta name="description" content="Ad creative similarity report on AdImageNet.">
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f0f13;
+  --bg2:       #18181f;
+  --bg3:       #22222d;
+  --border:    #2e2e3d;
+  --text:      #e2e2f0;
+  --muted:     #8888a8;
+  --accent:    #a78bfa;
+  --accent2:   #34d399;
+  --radius:    14px;
+  --card-gap:  24px;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.page-wrap { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.hero {
+  padding: 48px 0 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+.hero-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(167,139,250,.12);
+  border: 1px solid rgba(167,139,250,.25);
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(22px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #e2e2f0 30%, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-meta { font-size: 13px; color: var(--muted); }
+.hero-meta span { margin-right: 20px; }
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.stats-section { margin-bottom: 48px; }
+.kpi-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.kpi-card {
+  flex: 1 1 180px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  transition: border-color .2s;
+}
+.kpi-card:hover { border-color: var(--accent); }
+.kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-label { font-size: 13px; color: var(--muted); }
+
+.breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: var(--bg2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.breakdown-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+.breakdown-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.breakdown-table tr:last-child td { border-bottom: none; }
+.breakdown-table tr:hover td { background: rgba(167,139,250,.05); }
+
+.type-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.bar-cell { min-width: 120px; }
+.rel-bar-track {
+  height: 6px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rel-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s;
+}
+
+.tabs-section { margin-bottom: 48px; }
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.tab-btn {
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+.tab-btn:hover { color: var(--text); border-color: var(--border); }
+.tab-btn.active {
+  background: rgba(167,139,250,.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.tab-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+
+.pair-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: var(--card-gap);
+  transition: border-color .2s, box-shadow .2s;
+}
+.pair-card:hover {
+  border-color: rgba(167,139,250,.4);
+  box-shadow: 0 0 0 1px rgba(167,139,250,.1);
+}
+.pair-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.pair-num {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--accent);
+}
+.pair-indices { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+.pair-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.ad-cell {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ad-cell img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #000;
+}
+.ad-meta { display: flex; flex-direction: column; gap: 4px; }
+.dim-badge {
+  font-size: 11px;
+  color: var(--accent2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.ocr-text {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+  max-width: 300px;
+  word-break: break-word;
+}
+
+.relation-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  gap: 8px;
+  padding-top: 60px;
+}
+.relation-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.arrow-line {
+  width: 2px;
+  height: 40px;
+  background: linear-gradient(to bottom, var(--border), transparent);
+}
+
+.signals-section {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.signals-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.signal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.signal-row.key-signal-row {
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+.signal-label-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 220px;
+}
+.signal-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.key-signal-row .signal-label {
+  color: var(--text);
+  font-weight: 500;
+}
+.key-signal-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(167, 139, 250, 0.16);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+.signal-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.signal-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .5s;
+}
+.signal-value {
+  font-size: 11px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 48px;
+  text-align: right;
+}
+
+.thresh-section { margin-bottom: 48px; }
+.thresh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.thresh-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.thresh-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.thresh-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+.thresh-row code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.timing-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.timing-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+}
+.timing-row.total-row {
+  font-weight: 600;
+}
+.timing-label {
+  color: var(--muted);
+}
+.timing-value {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+}
+.timing-value.accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+.timing-meta {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.no-pairs {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 20px 0;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="hero">
+    <div class="hero-tag">Adobe Content Intelligence — ML Assignment</div>
+    <h1>Ad Creative Similarity &amp; Relationship Report</h1>
+    <p class="hero-meta">
+      <span>📅 Generated: 2026-08-10 14:36</span>
+      <span>🗂 Dataset: AdImageNet</span>
+      <span>🔬 Pipeline: GBDT Classifier (CLIP + Sentence Transformers)</span>
+    </p>
+  </div>
+  
+    <div class="timing-card">
+      <p class="section-title" style="margin-bottom:14px;">⏱ Execution Timing</p>
+      <div class="timing-row total-row">
+        <span class="timing-label">⚡ Total Execution Time</span>
+        <span class="timing-value accent">5m 46s</span>
+      </div>
+      <div class="timing-meta">Sample: all ads &nbsp;·&nbsp; CLIP threshold: 0.61</div>
+    </div>
+
+  
+          <p style="color:#cbd5e1; font-size:14px; font-weight:600; margin-bottom:8px;">📊 Permutation Feature Importances (Multi-Modal Signals):</p>
+          <div style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; background:#0f172a; padding:6px 12px; border-radius:6px;">
+              <span>1. <code>text_sim</code> (OCR Text Similarity)</span>
+              <strong style="color:#38bdf8;">High</strong>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:#0f172a; padding:6px 12px; border-radius:6px;">
+              <span>2. <code>color_sim</code> (HSV Canvas Palette Correlation)</span>
+              <strong style="color:#e879f9;">Medium</strong>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:#0f172a; padding:6px 12px; border-radius:6px;">
+              <span>3. <code>visual_sim</code> (Global Visual Embedding Cosine Sim)</span>
+              <strong style="color:#34d399;">Medium</strong>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:#0f172a; padding:6px 12px; border-radius:6px;">
+              <span>4. <code>phash_dist</code> (pHash Near-Duplicate Distance)</span>
+              <strong style="color:#a78bfa;">Medium</strong>
+            </div>
+          </div>
+        </div></div>
+  </div>
+
+  <footer>
+    <p>Ad Creative Similarity Pipeline &nbsp;·&nbsp; Adobe Content Intelligence Assignment</p>
+  </footer>
+
+</div>
+<script>
+function switchTab(tabGroup, labelId) {
+  document.querySelectorAll('[data-tab-group="'+tabGroup+'"]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tabId === labelId);
+  });
+  document.querySelectorAll('[data-panel-group="'+tabGroup+'"]').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.panelId === labelId);
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab-nav').forEach(nav => {
+    const firstBtn = nav.querySelector('.tab-btn');
+    if (firstBtn) firstBtn.click();
+  });
+});
+</script>
+</body>
+</html>

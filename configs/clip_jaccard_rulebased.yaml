@@ -1,0 +1,32 @@
+dataset:
+  name: "PeterBrendan/AdImageNet"
+  split: "train"
+
+pipeline:
+  name: "Rule-based (CLIP + Lexical Jaccard)"
+  type: "improved"
+  sample_size: null
+  use_cache: false
+  cache_dir: "cache"
+  output_path: "reports/clip_jaccard_rulebased.html"
+  max_pairs_per_type: 10
+
+models:
+  visual_model: "openai/clip-vit-base-patch32"
+  text_model: "jaccard"
+  device: "auto"
+
+thresholds:
+  clip_threshold: 0.61
+  identical_phash_max: 2
+  identical_text_min: 0.70
+  identical_clip_min: 0.93
+  containment_clip_min: 0.80
+  containment_text_min: 0.70
+  color_palette_max: 0.60
+  text_variant_text_min: 0.10
+  text_variant_text_max: 0.69
+  layout_variant_text_min: 0.35
+  layout_variant_text_max: 0.69
+  layout_variant_clip_min: 0.70
+  layout_variant_clip_max: 0.90

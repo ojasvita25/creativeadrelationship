@@ -1,0 +1,22 @@
+dataset:
+  name: "PeterBrendan/AdImageNet"
+  split: "train"
+
+pipeline:
+  name: "GBDT Classifier (CLIP + Sentence Transformers)"
+  type: "improved"
+  use_gbdt: true
+  sample_size: null
+  use_cache: false
+  cache_dir: "cache"
+  output_path: "reports/clip_sentencetransformer_gbdt.html"
+  max_pairs_per_type: 10
+
+models:
+  visual_model: "openai/clip-vit-base-patch32"
+  text_model: "all-MiniLM-L6-v2"
+  gbdt_model_path: "models/gbdt_clip_sentencetransformer_classifier.pkl"
+  device: "auto"
+
+thresholds:
+  clip_threshold: 0.61
