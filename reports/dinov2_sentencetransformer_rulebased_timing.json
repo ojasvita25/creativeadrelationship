@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-08-13T14:06:38+00:00",
+  "sample_size": null,
+  "pipeline_name": "Rule-Based (DINOv2 + Sentence Transformers)",
+  "timings_seconds": {
+    "pipeline_total": 651.51,
+    "total_wall_clock": 651.53,
+    "report_generation": 1.19
+  },
+  "timings_formatted": {
+    "pipeline_total": "10m 51s",
+    "total_wall_clock": "10m 51s",
+    "report_generation": "1.2s"
+  },
+  "dino_threshold": 0.5
+}

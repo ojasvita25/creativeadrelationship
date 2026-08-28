@@ -170,6 +170,8 @@ def main() -> None:
         timing_record["resnet_threshold"] = t_cfg["resnet_threshold"]
     if "clip_threshold" in t_cfg:
         timing_record["clip_threshold"] = t_cfg["clip_threshold"]
+    if "dinov2_threshold" in t_cfg:
+        timing_record["dinov2_threshold"] = t_cfg["dinov2_threshold"]
 
     t_rep = time.perf_counter()
     out_path = pipeline.report(timings=timing_record)

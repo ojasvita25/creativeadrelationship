@@ -1,15 +1,15 @@
 {
-  "started_at": "2026-08-10T10:45:45+00:00",
+  "started_at": "2026-08-27T06:34:02+00:00",
   "sample_size": null,
   "pipeline_name": "GBDT Classifier (CLIP + Sentence Transformers)",
   "timings_seconds": {
-    "pipeline_total": 387.64,
-    "total_wall_clock": 387.67,
-    "report_generation": 1.28
+    "pipeline_total": 321.13,
+    "total_wall_clock": 321.2,
+    "report_generation": 1.27
   },
   "timings_formatted": {
-    "pipeline_total": "6m 27s",
-    "total_wall_clock": "6m 27s",
+    "pipeline_total": "5m 21s",
+    "total_wall_clock": "5m 21s",
     "report_generation": "1.3s"
   },
   "clip_threshold": 0.61

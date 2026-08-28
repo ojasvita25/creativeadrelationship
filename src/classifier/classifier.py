@@ -87,11 +87,11 @@ class AdRelationshipClassifier:
         t_raw = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
 
         # Normalize threshold key names
-        vis_min = t_raw.get("clip_threshold") or t_raw.get("resnet_threshold") or t_raw.get("candidate_threshold", 0.65)
-        ident_vis = t_raw.get("identical_clip_min") or t_raw.get("identical_resnet_min") or t_raw.get("identical_visual_min", 0.85)
-        cont_vis  = t_raw.get("containment_clip_min") or t_raw.get("containment_resnet_min") or t_raw.get("containment_visual_min", 0.70)
-        lay_vis_min = t_raw.get("layout_variant_clip_min") or t_raw.get("layout_variant_resnet_min") or t_raw.get("layout_variant_visual_min", 0.65)
-        lay_vis_max = t_raw.get("layout_variant_clip_max") or t_raw.get("layout_variant_resnet_max") or t_raw.get("layout_variant_visual_max", 0.90)
+        vis_min = t_raw.get("dinov2_threshold") or t_raw.get("dino_threshold") or t_raw.get("clip_threshold") or t_raw.get("resnet_threshold") or t_raw.get("candidate_threshold", 0.65)
+        ident_vis = t_raw.get("identical_dinov2_min") or t_raw.get("identical_dino_min") or t_raw.get("identical_clip_min") or t_raw.get("identical_resnet_min") or t_raw.get("identical_visual_min", 0.85)
+        cont_vis  = t_raw.get("containment_dinov2_min") or t_raw.get("containment_dino_min") or t_raw.get("containment_clip_min") or t_raw.get("containment_resnet_min") or t_raw.get("containment_visual_min", 0.70)
+        lay_vis_min = t_raw.get("layout_variant_dinov2_min") or t_raw.get("layout_variant_dino_min") or t_raw.get("layout_variant_clip_min") or t_raw.get("layout_variant_resnet_min") or t_raw.get("layout_variant_visual_min", 0.65)
+        lay_vis_max = t_raw.get("layout_variant_dinov2_max") or t_raw.get("layout_variant_dino_max") or t_raw.get("layout_variant_clip_max") or t_raw.get("layout_variant_resnet_max") or t_raw.get("layout_variant_visual_max", 0.90)
 
         self.thresholds: dict = {
             **t_raw,

@@ -67,6 +67,7 @@ class AdRelationshipPipeline:
         self.visual_model         = visual_model
         self.text_model           = text_model
         self.candidate_threshold   = candidate_threshold
+        self.use_cache            = bool(cache_dir)
         self.cache_dir            = cache_dir
         self.hf_token             = hf_token or os.environ.get("HF_TOKEN")
         self.output_path          = output_path
@@ -135,9 +136,16 @@ class AdRelationshipPipeline:
             "grouped_matches": dict(grouped),
         }
 
-    def _match_cache_path(self) -> str:
+    def _match_cache_path(self) -> str | None:
+        if not getattr(self, "use_cache", True) or not self.cache_dir:
+            return None
         n_str = str(self.sample_size) if self.sample_size else "all"
-        vis_tag = "clip" if "clip" in self.visual_model.lower() else "resnet"
+        if "dinov2" in self.visual_model.lower():
+            vis_tag = "dinov2"
+        elif "clip" in self.visual_model.lower():
+            vis_tag = "clip"
+        else:
+            vis_tag = "resnet"
         txt_tag = "jaccard" if "jaccard" in self.text_model.lower() else "st"
         return os.path.join(
             self.cache_dir,
@@ -217,7 +225,8 @@ class AdRelationshipPipeline:
         txt_model = m_cfg.get("text_model", "all-MiniLM-L6-v2" if pipe_type == "improved" else "jaccard")
 
         candidate_thresh = (
-            t_cfg.get("clip_threshold")
+            t_cfg.get("dino_threshold")
+            or t_cfg.get("clip_threshold")
             or t_cfg.get("resnet_threshold")
             or t_cfg.get("candidate_threshold", 0.65)
         )

@@ -1,8 +1,23 @@
+"""
+src/classifier/gbdt_classifier.py
+---------------------------------
+GBDTAdRelationshipClassifier — Gradient Boosted Decision Tree relationship classifier.
+Uses trained HistGradientBoostingClassifier models for 4 multi-modal feature signals.
+"""
+
+from __future__ import annotations
+
 import os
 import pickle
+from typing import TYPE_CHECKING, List, Tuple, Dict, Any
+
 import numpy as np
 
 from src.utils.signal_utils import color_similarity, dims_match, text_similarity
+
+if TYPE_CHECKING:
+    from src.features.extractor import AdFeature
+
 
 LABEL_NAMES = [
     "Unrelated",
@@ -12,6 +27,18 @@ LABEL_NAMES = [
     "Text-variant",
     "Layout-variant",
 ]
+
+
+def extract_feature_vector(f1, f2, sig: dict) -> list[float]:
+    """
+    Extract a 4-dimensional pure multi-modal feature vector X for a candidate ad pair.
+    """
+    return [
+        float(sig.get("visual_sim", 0.0)),
+        float(sig.get("text_sim", 0.0)),
+        float(sig.get("color_sim", 0.0)),
+        float(sig.get("phash_dist", 64.0)),
+    ]
 
 
 class GBDTAdRelationshipClassifier:
@@ -37,18 +64,8 @@ class GBDTAdRelationshipClassifier:
             raise FileNotFoundError(f"GBDT model not found at {model_path}. Run train_gbdt.py first!")
 
     def classify_signals(self, f1, f2, sig: dict) -> str:
-        """
-        Classify a single pair given their features and signals dict using GBDT.
-        """
-        X_vec = np.array(
-            [[
-                float(sig.get("visual_sim", 0.0)),
-                float(sig.get("text_sim", 0.0)),
-                float(sig.get("color_sim", 0.0)),
-                float(sig.get("phash_dist", 64.0)),
-            ]],
-            dtype=np.float32,
-        )
+        feat_vec = extract_feature_vector(f1, f2, sig)
+        X_vec = np.array([feat_vec], dtype=np.float32)
         pred_id = int(self.model.predict(X_vec)[0])
         return self.label_names[pred_id]
 
@@ -60,9 +77,6 @@ class GBDTAdRelationshipClassifier:
         visual_model_type: str = "clip",
         verbose: bool = False,
     ) -> list[tuple[int, int, str, dict]]:
-        """
-        Classify all candidate pairs using vectorized batch GBDT prediction.
-        """
         from tqdm import tqdm
 
         print(f"Extracting signals for {len(candidates):,} candidate pairs for GBDT...")
@@ -70,23 +84,27 @@ class GBDTAdRelationshipClassifier:
         sig_list = []
         pairs_list = []
 
-        print(f"Vectorizing signals for {len(candidates):,} candidate pairs...")
         for i, j in tqdm(candidates, desc="Vectorizing signals", unit="pair"):
             f1, f2 = features[i], features[j]
             v_sim = float(np.dot(f1.visual_emb, f2.visual_emb))
             t_sim = text_similarity(f1, f2, text_model_type=text_model_type)
             c_sim = color_similarity(f1, f2)
             phash_d = float(f1.phash - f2.phash)
+            is_same = dims_match(f1, f2)
 
-            X_list.append([v_sim, t_sim, c_sim, phash_d])
-            sig_list.append({
+            sig = {
                 "visual_sim": v_sim,
                 "clip_sim": v_sim,
                 "text_sim": t_sim,
                 "color_sim": c_sim,
                 "phash_dist": phash_d,
-                "dims_match": dims_match(f1, f2),
-            })
+                "dims_match": is_same,
+            }
+
+            feat_vec = extract_feature_vector(f1, f2, sig)
+
+            X_list.append(feat_vec)
+            sig_list.append(sig)
             pairs_list.append((i, j))
 
         if not X_list:
@@ -97,7 +115,7 @@ class GBDTAdRelationshipClassifier:
         print("  Running GBDT batch prediction...")
         
         probs = self.model.predict_proba(X)
-        GLOBAL_THRESHOLD = 0.90
+        GLOBAL_THRESHOLD = 0.70
         matches = []
         
         debug_counts = {name: 0 for name in self.label_names}
@@ -124,9 +142,6 @@ class GBDTAdRelationshipClassifier:
                 f1, f2 = features[i], features[j]
                 is_same = dims_match(f1, f2)
 
-                # Strict Domain Rules:
-                # Identical, Color-variant, Text-variant, Layout-variant MUST have matching dimensions.
-                # Containment MUST have different dimensions.
                 if label in ["Identical", "Color-variant", "Text-variant", "Layout-variant"] and not is_same:
                     continue
                 if label == "Containment" and is_same:

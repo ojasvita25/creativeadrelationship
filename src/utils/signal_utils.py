@@ -76,27 +76,10 @@ def compute_all_signals(
 
     if "resnet" in visual_model_type.lower():
         signals["resnet_sim"] = v_sim
+    elif "dino" in visual_model_type.lower():
+        signals["dino_sim"] = v_sim
     else:
         signals["clip_sim"] = v_sim
 
     return signals
 
-
-def compute_all_sam_clip_signals(
-    f1: AdFeature,
-    f2: AdFeature,
-    text_model_type: str = "sentence_transformer",
-    visual_model_type: str = "clip",
-    model=None,
-    processor=None,
-    device: str = "cpu",
-) -> dict:
-    """
-    Compute all 7 pairwise signals including SAM foreground subject color & visual crop features.
-    """
-    from src.features.sam_clip_extractor import compute_foreground_color_sim, compute_foreground_visual_sim
-
-    signals = compute_all_signals(f1, f2, text_model_type=text_model_type, visual_model_type=visual_model_type)
-    signals["ad_foreground_color_sim"] = compute_foreground_color_sim(f1, f2)
-    signals["ad_foreground_visual_sim"] = compute_foreground_visual_sim(f1, f2, model=model, processor=processor, device=device)
-    return signals

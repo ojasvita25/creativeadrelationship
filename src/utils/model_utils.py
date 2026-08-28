@@ -18,14 +18,17 @@ from PIL import Image
 from sentence_transformers import SentenceTransformer
 
 
-def load_visual_model(model_name: str, device: str) -> Tuple[Any, Any]:
+def load_visual_model(
+    model_name: str,
+    device: str,
+) -> Tuple[Any, Any]:
     """
     Load visual model and processor/transform.
 
     Parameters
     ----------
     model_name : str
-        Model identifier: e.g. "openai/clip-vit-base-patch32" or "resnet18".
+        Model identifier: e.g. "facebook/dinov2-base", "openai/clip-vit-base-patch32", or "resnet18".
     device : str
         Compute device ("mps", "cuda", "cpu").
 
@@ -59,6 +62,15 @@ def load_visual_model(model_name: str, device: str) -> Tuple[Any, Any]:
             ),
         ])
         return model, transform
+
+    elif "dinov2" in model_name.lower():
+        from transformers import AutoImageProcessor, AutoModel
+        hf_name = "facebook/dinov2-base" if ("vitb" in model_name.lower() or "torch" in model_name.lower() or "base" in model_name.lower()) else model_name
+        print(f"Loading DINOv2 ({hf_name}) on device: {device}...")
+        processor = AutoImageProcessor.from_pretrained(hf_name)
+        model = AutoModel.from_pretrained(hf_name).to(device)
+        model.eval()
+        return model, processor
     else:
         raise ValueError(f"Unsupported visual model name: {model_name!r}")
 
@@ -71,13 +83,18 @@ def get_visual_embedding(
     device: str,
 ) -> np.ndarray:
     """
-    Extract L2-normalized 512-d visual embedding for an image.
+    Extract L2-normalized visual embedding for an image.
     """
     if "clip" in model_name.lower():
         inputs = processor_or_transform(images=image, return_tensors="pt").to(device)
         with torch.no_grad():
-            vision_out = model.vision_model(pixel_values=inputs["pixel_values"])
-            emb = model.visual_projection(vision_out.pooler_output)
+            if hasattr(model, "get_base_model"):
+                base = model.get_base_model()
+                vision_out = base.vision_model(pixel_values=inputs["pixel_values"])
+                emb = base.visual_projection(vision_out.pooler_output)
+            else:
+                vision_out = model.vision_model(pixel_values=inputs["pixel_values"])
+                emb = model.visual_projection(vision_out.pooler_output)
             emb = emb / emb.norm(p=2, dim=-1, keepdim=True)
         return emb.detach().squeeze().cpu().numpy().flatten()
 
@@ -89,6 +106,14 @@ def get_visual_embedding(
             if norm > 0:
                 feat = feat / norm
         return feat.cpu().numpy().flatten()
+
+    elif "dinov2" in model_name.lower():
+        inputs = processor_or_transform(images=image, return_tensors="pt").to(device)
+        with torch.no_grad():
+            outputs = model(**inputs)
+            emb = outputs.last_hidden_state[:, 0]
+            emb = emb / emb.norm(p=2, dim=-1, keepdim=True)
+        return emb.detach().squeeze().cpu().numpy().flatten()
     else:
         raise ValueError(f"Unsupported visual model name: {model_name!r}")
 

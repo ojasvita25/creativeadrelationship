@@ -1,0 +1,36 @@
+# Configuration 10: GBDT ML Classifier (DINOv2 + Sentence Transformers - All 9,003 Ads)
+
+dataset:
+  name: "PeterBrendan/AdImageNet"
+  split: "train"
+
+pipeline:
+  name: "GBDT Classifier (DINOv2 + Sentence Transformers)"
+  type: "improved"
+  sample_size: null
+  use_cache: false
+  use_gbdt: true
+  cache_dir: "cache"
+  output_path: "reports/dinov2_sentencetransformer_gbdt.html"
+  max_pairs_per_type: 10
+
+models:
+  visual_model: "dinov2-vitb14-torch"
+  text_model: "all-MiniLM-L6-v2"
+  gbdt_model_path: "models/gbdt_dinov2_sentencetransformer_classifier.pkl"
+  device: "auto"
+
+thresholds:
+  dinov2_threshold: 0.50 # vis candidate threshold
+  identical_phash_max: 2
+  identical_text_min: 0.90
+  identical_dino_min: 0.92 # vis really high
+  containment_dino_min: 0.80 # vis lil flexible
+  containment_text_min: 0.85
+  color_palette_max: 0.60
+  text_variant_text_min: 0.20
+  text_variant_text_max: 0.89
+  layout_variant_text_min: 0.65
+  layout_variant_text_max: 0.89
+  layout_variant_dino_min: 0.70 # vis
+  layout_variant_dino_max: 0.92 # vis

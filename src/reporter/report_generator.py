@@ -49,12 +49,12 @@ _LABEL_DESCRIPTIONS: dict[str, str] = {
 }
 
 _SIGNAL_LABELS: dict[str, str] = {
-    "phash_dist":  "pHash Distance",
-    "color_sim":   "Color Similarity",
-    "text_sim":    "Text Similarity",
-    "clip_sim":    "CLIP Visual Similarity",
-    "resnet_sim":  "ResNet-18 Visual Similarity",
-    "dino_sim":    "Visual Similarity",
+    "phash_dist": "pHash Distance",
+    "color_sim":  "Color Similarity",
+    "text_sim":   "Text Similarity",
+    "clip_sim":   "CLIP Visual Similarity",
+    "resnet_sim": "ResNet-18 Visual Similarity",
+    "dino_sim":   "DINO Visual Similarity",
 }
 
 _KEY_SIGNALS: dict[str, set[str]] = {
@@ -816,7 +816,12 @@ def generate_report(
         started = timings.get("started_at", ts)
         sample_sz = timings.get('sample_size')
         sample_str = f"{sample_sz:,}" if isinstance(sample_sz, (int, float)) else str(sample_sz or "all")
-        thresh_str = f"ResNet threshold: {timings['resnet_threshold']}" if 'resnet_threshold' in timings else f"CLIP threshold: {timings.get('clip_threshold', '?')}"
+        if 'dino_threshold' in timings:
+            thresh_str = f"DINOv2 threshold: {timings['dino_threshold']}"
+        elif 'resnet_threshold' in timings:
+            thresh_str = f"ResNet threshold: {timings['resnet_threshold']}"
+        else:
+            thresh_str = f"CLIP threshold: {timings.get('clip_threshold', '?')}"
         pipeline_title = timings.get("pipeline_name") or ("Baseline (ResNet-18 + Lexical Jaccard)" if 'resnet_threshold' in timings else "Improved (CLIP + Sentence Transformers)")
         exec_time = fmt.get('total_wall_clock') or fmt.get('pipeline_total') or '-'
         timing_html = f"""

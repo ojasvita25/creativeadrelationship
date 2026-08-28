@@ -44,27 +44,43 @@ def main():
     clip_sims = clip_sim_matrix[triu_idx]
     print(f"  Calculated {len(clip_sims):,} real pairwise CLIP similarities.")
 
-    # 3. Plot Both Empirical Distributions Overlaid on the SAME Figure
+    # 3. Extract Real DINOv2 ViT-B/14 Features
+    print("\n[3/3] Extracting real DINOv2 ViT-B/14 visual embeddings...")
+    extractor_dino = AdFeatureExtractor(visual_model="dinov2-vitb14-torch", text_model="jaccard")
+    features_dino = extractor_dino.extract(dataset, sample_size=sample_n)
+    
+    dino_embs = np.array([f.visual_emb for f in features_dino if f.visual_emb is not None])
+    print(f"  Extracted {len(dino_embs)} DINOv2 vectors of shape {dino_embs.shape[1]}")
+
+    dino_sim_matrix = np.dot(dino_embs, dino_embs.T)
+    dino_sims = dino_sim_matrix[triu_idx]
+    print(f"  Calculated {len(dino_sims):,} real pairwise DINOv2 similarities.")
+
+    # 4. Plot Empirical Distributions Overlaid on the SAME Figure
     print("\nRendering Combined Empirical Distributions Plot (Overlaid on Single Figure)...")
     plt.style.use("dark_background")
-    fig, ax = plt.subplots(figsize=(11, 6), facecolor="#0f172a")
+    fig, ax = plt.subplots(figsize=(12, 6.5), facecolor="#0f172a")
     ax.set_facecolor("#1e293b")
 
     # ResNet-18 Histogram
-    ax.hist(resnet_sims, bins=70, density=True, color="#f97316", alpha=0.45, edgecolor="#c2410c", label="Empirical ResNet-18 (499,500 Pairs)")
-    ax.axvline(x=0.73, color="#ea580c", linestyle="--", linewidth=2.5, label="resnet_threshold: 0.73")
+    ax.hist(resnet_sims, bins=70, density=True, color="#f97316", alpha=0.35, edgecolor="#c2410c", label="Empirical ResNet-18 (499,500 Pairs)")
+    ax.axvline(x=0.73, color="#ea580c", linestyle="--", linewidth=2.0, label="resnet_threshold: 0.73")
 
     # CLIP ViT-B/32 Histogram
-    ax.hist(clip_sims, bins=70, density=True, color="#38bdf8", alpha=0.45, edgecolor="#0284c7", label="Empirical CLIP ViT-B/32 (499,500 Pairs)")
-    ax.axvline(x=0.61, color="#8b5cf6", linestyle="--", linewidth=2.5, label="clip_threshold: 0.61")
+    ax.hist(clip_sims, bins=70, density=True, color="#38bdf8", alpha=0.35, edgecolor="#0284c7", label="Empirical CLIP ViT-B/32 (499,500 Pairs)")
+    ax.axvline(x=0.61, color="#8b5cf6", linestyle="--", linewidth=2.0, label="clip_threshold: 0.61")
+
+    # DINOv2 ViT-B/14 Histogram
+    ax.hist(dino_sims, bins=70, density=True, color="#34d399", alpha=0.35, edgecolor="#059669", label="Empirical DINOv2 ViT-B/14 (499,500 Pairs)")
+    ax.axvline(x=0.65, color="#10b981", linestyle="--", linewidth=2.0, label="dino_threshold: 0.65")
 
     # Labels and Formatting
-    ax.set_title("ResNet-18 vs. CLIP ViT-B/32 Empirical Cosine Similarity (1,000 AdImageNet Ads)", fontsize=13, fontweight="bold", color="#f8fafc", pad=14)
+    ax.set_title("ResNet-18 vs. CLIP ViT-B/32 vs. DINOv2 ViT-B/14 Cosine Similarity (1,000 Ads)", fontsize=13, fontweight="bold", color="#f8fafc", pad=14)
     ax.set_xlabel("Pairwise Visual Cosine Similarity", fontsize=11, color="#cbd5e1")
     ax.set_ylabel("Density", fontsize=11, color="#cbd5e1")
     ax.set_xlim(0.0, 1.0)
     ax.grid(True, linestyle=":", alpha=0.3, color="#64748b")
-    ax.legend(loc="upper right", frameon=True, facecolor="#0f172a", edgecolor="#334155", labelcolor="#f8fafc", fontsize=10)
+    ax.legend(loc="upper right", frameon=True, facecolor="#0f172a", edgecolor="#334155", labelcolor="#f8fafc", fontsize=9.5)
 
     plt.tight_layout()
 

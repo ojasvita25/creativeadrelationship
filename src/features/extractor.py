@@ -54,13 +54,13 @@ class AdFeature:
 # ---------------------------------------------------------------------------
 class AdFeatureExtractor:
     """
-    Unified Feature Extractor supporting any visual model (CLIP, ResNet-18)
+    Unified Feature Extractor supporting any visual model (CLIP, DINOv2, ResNet-18)
     and text representation (SentenceTransformer, Lexical Jaccard).
 
     Parameters
     ----------
     visual_model : str
-        Visual model identifier: "openai/clip-vit-base-patch32" or "resnet18".
+        Visual model identifier: "openai/clip-vit-base-patch32", "dinov2-vitb14-torch", or "resnet18".
     text_model : str
         Text model identifier: "all-MiniLM-L6-v2" or "jaccard".
     device : str
@@ -137,7 +137,7 @@ class AdFeatureExtractor:
             self.device,
         )
 
-        # Text representation
+        # Text embedding & Tokens
         feat.text_emb, feat.tokens = extract_text_representation(
             self.text_model_name,
             self._text_model,
@@ -157,7 +157,12 @@ class AdFeatureExtractor:
         from tqdm import tqdm
 
         n_str = str(sample_size) if sample_size else "all"
-        vis_tag = "clip" if "clip" in self.visual_model_name.lower() else "resnet"
+        if "dinov2" in self.visual_model_name.lower():
+            vis_tag = "dinov2"
+        elif "clip" in self.visual_model_name.lower():
+            vis_tag = "clip"
+        else:
+            vis_tag = "resnet"
         cache_path = os.path.join(self.cache_dir, f"features_{vis_tag}_{n_str}.pkl") if self.cache_dir else None
 
         if cache_path and os.path.exists(cache_path):

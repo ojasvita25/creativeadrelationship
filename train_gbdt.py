@@ -1,17 +1,26 @@
+"""
+train_gbdt.py
+-------------
+Training script for Gradient Boosted Decision Tree (GBDT) Ad Relationship Classifier.
+Train on training ad split and validate on an independent holdout validation ad set.
+"""
+
+from __future__ import annotations
+
 import argparse
 import os
 import pickle
 import numpy as np
 from tqdm import tqdm
 from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.inspection import permutation_importance
 from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline as ImbPipeline
 
-from src.utils.signal_utils import compute_all_signals
+from src.config import load_config
+from src.utils.signal_utils import compute_all_signals, dims_match
 from src.classifier.classifier import AdRelationshipClassifier
+
 
 LABEL_NAMES = [
     "Unrelated",
@@ -36,58 +45,9 @@ def extract_feature_vector(f1, f2, sig: dict) -> list[float]:
     ]
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Train GBDT Classifier from Config and Pseudo-Labels")
-    parser.add_argument("--config", type=str, default="configs/clip_rulebased.yaml", help="Path to config YAML file")
-    parser.add_argument("--output", type=str, default=None, help="Output path for trained model pkl (default derived from config or models/gbdt_classifier.pkl)")
-    args = parser.parse_args()
-
-    print("==================================================")
-    print(f"  TRAINING GBDT CLASSIFIER ({args.config})")
-    print("==================================================")
-    from src.config import load_config
-    cfg = load_config(args.config)
-
-    text_model_type = cfg.get("models", {}).get("text_model", "sentence_transformer")
-    visual_model_type = cfg.get("models", {}).get("visual_model", "clip")
-
-    if args.output:
-        model_path = args.output
-    elif text_model_type.lower() == "jaccard":
-        model_path = "models/gbdt_jaccard_classifier.pkl"
-    else:
-        model_path = "models/gbdt_classifier.pkl"
-
-    cache_path = "cache/features_clip_2000.pkl"
-    if not os.path.exists(cache_path):
-        print("Extracting 2,000 ad features using CLIP visual & text models...")
-        from src.pipeline.pipeline import AdRelationshipPipeline
-        pipe = AdRelationshipPipeline.from_config(cfg)
-        ds = pipe._load_dataset()
-        features = pipe.extractor.extract(ds, sample_size=2000)
-        os.makedirs("cache", exist_ok=True)
-        with open(cache_path, "wb") as f:
-            pickle.dump(features, f)
-    else:
-        print(f"Loading 2,000 ad features from {cache_path} ...")
-        with open(cache_path, "rb") as f:
-            features = pickle.load(f)
-
-    rule_classifier = AdRelationshipClassifier(
-        thresholds=cfg.get("thresholds"),
-        text_model_type=text_model_type,
-        visual_model_type=visual_model_type,
-    )
-
-    candidates = rule_classifier.find_candidates(features, candidate_threshold=0.61)
-    print(f"Retrieved {len(candidates):,} candidate pairs from FAISS.")
-
-    # 1. Build Dataset (X, y)
-    X_list = []
-    y_list = []
-
-    print(f"Extracting multi-modal signals (text_model={text_model_type}) for training dataset...")
-    for i, j in tqdm(candidates, desc="Building dataset"):
+def build_pair_dataset(candidates, features, rule_classifier, text_model_type, visual_model_type, desc="Building dataset"):
+    X_list, y_list = [], []
+    for i, j in tqdm(candidates, desc=desc):
         f1, f2 = features[i], features[j]
         sig = compute_all_signals(f1, f2, text_model_type=text_model_type, visual_model_type=visual_model_type)
 
@@ -98,87 +58,150 @@ def main():
         X_list.append(feat_vec)
         y_list.append(label_id)
 
-    X_raw = np.array(X_list, dtype=np.float32)
-    y_raw = np.array(y_list, dtype=np.int64)
+    X = np.array(X_list, dtype=np.float32)
+    y = np.array(y_list, dtype=np.int64)
+    return X, y
 
-    feature_names = [
-        "visual_sim",
-        "text_sim",
-        "color_sim",
-        "phash_dist",
-    ]
+
+def main():
+    parser = argparse.ArgumentParser(description="Train GBDT Classifier on 2,000 Ads and Validate on 1,000 Holdout Ads")
+    parser.add_argument("--config", type=str, default="configs/clip_sentencetransformer_gbdt.yaml", help="Path to config YAML file")
+    parser.add_argument("--output", type=str, default=None, help="Output path for trained model pkl")
+    parser.add_argument("--train-size", type=int, default=2000, help="Number of ad samples for training (default: 2000)")
+    parser.add_argument("--val-size", type=int, default=1000, help="Number of separate holdout ad samples for validation (default: 1000)")
+    args = parser.parse_args()
+
+    train_size = args.train_size
+    val_size = args.val_size
+    total_size = train_size + val_size
+
+    print("==================================================")
+    print(f"  TRAINING GBDT CLASSIFIER WITH HOLDOUT VALIDATION ({args.config})")
+    print(f"  Train Set: {train_size:,} ads | Validation Holdout Set: {val_size:,} ads")
+    print("==================================================")
+    cfg = load_config(args.config)
+
+    text_model_type = cfg.get("models", {}).get("text_model", "sentence_transformer")
+    visual_model_type = cfg.get("models", {}).get("visual_model", "clip")
+
+    if args.output:
+        model_path = args.output
+    else:
+        model_path = cfg.get("models", {}).get("gbdt_model_path") or "models/gbdt_classifier.pkl"
+
+    vis_tag = "dinov2" if "dinov2" in visual_model_type.lower() else ("clip" if "clip" in visual_model_type.lower() else "resnet")
+    cache_path = f"cache/features_{vis_tag}_{total_size}.pkl"
+
+    if os.path.exists(cache_path):
+        print(f"Loading cached features from {cache_path}...")
+        with open(cache_path, "rb") as f:
+            all_features = pickle.load(f)
+    else:
+        print(f"Extracting {total_size:,} ad features using {visual_model_type} visual & {text_model_type} text models...")
+        from src.pipeline.pipeline import AdRelationshipPipeline
+        cfg_train = dict(cfg)
+        cfg_train.setdefault("pipeline", {})["use_cache"] = False
+        pipe = AdRelationshipPipeline.from_config(cfg_train)
+        ds = pipe._load_dataset()
+        all_features = pipe.extractor.extract(ds, sample_size=total_size)
+        os.makedirs("cache", exist_ok=True)
+        with open(cache_path, "wb") as f:
+            pickle.dump(all_features, f)
+
+    train_features = all_features[:train_size]
+    val_features = all_features[train_size:total_size]
+
+    # Re-index validation features from 0 to val_size - 1 for candidates matching
+    for idx, f in enumerate(val_features):
+        f.index = idx
+
+    rule_classifier = AdRelationshipClassifier(
+        thresholds=cfg.get("thresholds"),
+        text_model_type=text_model_type,
+        visual_model_type=visual_model_type,
+    )
+
+    t_cfg = cfg.get("thresholds", {})
+    cand_thresh = t_cfg.get("dinov2_threshold") or t_cfg.get("dino_threshold") or t_cfg.get("clip_threshold") or t_cfg.get("resnet_threshold", 0.65)
+
+    print(f"\n[1/3] Extracting Candidate Pairs for Training ({train_size} ads)...")
+    train_candidates = rule_classifier.find_candidates(train_features, candidate_threshold=cand_thresh)
+    print(f"  Retrieved {len(train_candidates):,} training candidate pairs.")
+
+    print(f"\n[2/3] Extracting Candidate Pairs for Validation Holdout ({val_size} ads)...")
+    val_candidates = rule_classifier.find_candidates(val_features, candidate_threshold=cand_thresh)
+    print(f"  Retrieved {len(val_candidates):,} validation candidate pairs.")
+
+    feature_names = ["visual_sim", "text_sim", "color_sim", "phash_dist"]
+
+    X_train, y_train = build_pair_dataset(train_candidates, train_features, rule_classifier, text_model_type, visual_model_type, desc="Building Train Dataset")
+    X_val, y_val = build_pair_dataset(val_candidates, val_features, rule_classifier, text_model_type, visual_model_type, desc="Building Validation Dataset")
 
     print(f"\n==================================================")
-    print("  VERIFYING TRAINING DATASET FEATURE MATRIX")
+    print("  FEATURE MATRIX STATS")
     print("==================================================")
-    print(f"X shape: {X_raw.shape}, y shape: {y_raw.shape}")
-    print(f"Features: {feature_names}")
+    print(f"Train Dataset: X shape {X_train.shape}, y shape {y_train.shape}")
+    print(f"Validation Dataset: X shape {X_val.shape}, y shape {y_val.shape}")
 
-    counts = np.bincount(y_raw, minlength=len(LABEL_NAMES))
-    print("\nOriginal Class Distribution:")
-    for label_name, count in zip(LABEL_NAMES, counts):
-        pct = 100 * count / len(y_raw) if len(y_raw) else 0
-        print(f"  {label_name:<16}: {count:6d} pairs ({pct:5.2f}%)")
+    # Resampling Strategy: Downsample Unrelated (0) in training set
+    rus = RandomUnderSampler(sampling_strategy={0: 5000}, random_state=42)
+    X_train_res, y_train_res = rus.fit_resample(X_train, y_train)
 
-    # 2. Resampling Strategy
-    rus = RandomUnderSampler(sampling_strategy={0: 1000}, random_state=42)
-
-    # 3. Build Leakage-Free Pipeline
     clf = HistGradientBoostingClassifier(
-        max_iter=150,
-        learning_rate=0.08,
-        max_leaf_nodes=31,
+        max_iter=200,
+        learning_rate=0.05,
+        max_leaf_nodes=15,
+        min_samples_leaf=10,
         class_weight="balanced",
         random_state=42,
     )
 
-    # The pipeline ensures resampling only applies to the training data inside each cross-validation fold
-    pipeline = ImbPipeline([
-        ("rus", rus),
-        ("classifier", clf),
-    ])
+    print(f"\n[3/3] Training GBDT Model on {len(y_train_res):,} Training Pairs...")
+    clf.fit(X_train_res, y_train_res)
 
-    # 4. 5-Fold Stratified Cross-Validation
     print("\n--------------------------------------------------")
-    print("  EVALUATING 5-FOLD STRATIFIED CROSS-VALIDATION")
+    print("  EVALUATING MODEL ON 1,000 HOLDOUT VALIDATION ADS")
     print("--------------------------------------------------")
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    
-    # Reverted to standard cross-validation predictions without thresholding
-    y_pred_oof = cross_val_predict(pipeline, X_raw, y_raw, cv=skf)
+    val_probs = clf.predict_proba(X_val)
+    val_preds = np.argmax(val_probs, axis=1)
+    val_confidences = np.max(val_probs, axis=1)
 
-    present_classes = sorted(np.unique(np.concatenate([y_raw, y_pred_oof])))
+    CONF_THRESHOLD = 0.70
+    for idx in range(len(val_preds)):
+        pred_id = val_preds[idx]
+        
+        # Enforce confidence threshold
+        if pred_id > 0 and val_confidences[idx] < CONF_THRESHOLD:
+            val_preds[idx] = 0
+
+    present_classes = sorted(np.unique(np.concatenate([y_val, val_preds])))
     present_names = [LABEL_NAMES[i] for i in present_classes]
 
-    print("\nClassification Report (Out-of-Fold Predictions):")
-    print(classification_report(y_raw, y_pred_oof, target_names=present_names, digits=4))
+    print("\nHOLDOUT VALIDATION CLASSIFICATION REPORT (1,000 Independent Ads):")
+    print(classification_report(y_val, val_preds, target_names=present_names, digits=4))
 
-    print("\nConfusion Matrix:")
-    cm = confusion_matrix(y_raw, y_pred_oof)
+    print("\nHOLDOUT CONFUSION MATRIX:")
+    cm = confusion_matrix(y_val, val_preds)
     header = " ".join([f"{name[:8]:>8}" for name in present_names])
     print(f"{'':10} {header}")
     for idx, row in enumerate(cm):
         row_str = " ".join([f"{val:8d}" for val in row])
         print(f"{present_names[idx]:<10} {row_str}")
 
-    # 5. Feature Importance Analysis
+    # Feature Importance Analysis (Evaluated on balanced resampled training pairs)
     print("\n--------------------------------------------------")
     print("  FEATURE IMPORTANCE ANALYSIS (PERMUTATION)")
     print("--------------------------------------------------")
-    # Fit the pipeline on the full dataset for final feature importance and saving
-    X_res, y_res = rus.fit_resample(X_raw, y_raw)
-    clf.fit(X_res, y_res)
-
-    perm_imp = permutation_importance(clf, X_res, y_res, n_repeats=10, random_state=42)
+    perm_imp = permutation_importance(clf, X_train_res, y_train_res, scoring='f1_macro', n_repeats=10, random_state=42)
     importances = perm_imp.importances_mean
     std = perm_imp.importances_std
     indices = np.argsort(importances)[::-1]
 
-    for f in range(X_res.shape[1]):
+    for f in range(X_val.shape[1]):
         idx = indices[f]
         print(f"  {feature_names[idx]:<20}: {importances[idx]:.4f} ± {std[idx]:.4f}")
 
-    # 6. Save Model
+    # Save Model
     os.makedirs(os.path.dirname(model_path) or ".", exist_ok=True)
     with open(model_path, "wb") as f:
         pickle.dump(
